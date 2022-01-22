@@ -19,13 +19,39 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(rpc_url: String) -> Result<Self, CustomError> {
+    pub fn new() -> Result<Self, CustomError> {
+        let url = "http://localhost:8899/".to_string();
+        let commitment_config = CommitmentConfig::confirmed();
+
         Ok(Client {
             client: RpcClient::new_with_commitment(
-                rpc_url,
-                CommitmentConfig::confirmed()
+                url,
+                commitment_config,
             )
         })
+    }
+
+    pub fn create_mint_account(&self, wallet_pk: &Pubkey) -> Result<Pubkey, CustomError> {
+        //mint_account_pk
+        let mint_public_key = Pubkey::create_with_seed(user_id, "NFT", program_id);
+        
+        //minimum balance for rent exemption
+        let lamports_requirment = self.client.get_minimum_balance_for_rent_exemption(data_len)?;
+
+        //create_account_instruction
+
+        //initialize mint instruction
+
+        //latest blockhash
+
+        //transaction
+
+        //result
+
+        //check result
+
+        //return mint account pubkey
+        Ok(mint_public_key)
     }
 
     pub fn get_balance_for_rent_exemption(&self, data_len: usize, instruction: &[Instruction], payer: &Pubkey) -> Result<u64, CustomError> {
