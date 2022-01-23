@@ -1,5 +1,4 @@
 use solana_client::{
-    client_error::ClientError,
     rpc_client::RpcClient,
     rpc_config::{ RpcAccountInfoConfig, RpcProgramAccountsConfig },
     rpc_filter::{ RpcFilterType, MemcmpEncodedBytes, Memcmp },
@@ -7,23 +6,16 @@ use solana_client::{
 
 use solana_sdk::{
     commitment_config::{ CommitmentConfig, CommitmentLevel },
-    message::Message,
     signer::{
-        keypair::{read_keypair_file, write_keypair_file, Keypair},
+        keypair::Keypair,
         Signer,
     },
     transaction::Transaction,
-    {borsh::try_from_slice_unchecked, program_pack::Pack},
+    borsh::try_from_slice_unchecked,
 };
-use solana_program::{
-    pubkey::Pubkey,
-    instruction::Instruction,
-};
+use solana_program::pubkey::Pubkey;
 
-use solana_account_decoder::{
-    parse_account_data::{parse_account_data, AccountAdditionalData, ParsedAccount},
-    UiAccountEncoding,
-};
+use solana_account_decoder::UiAccountEncoding;
 
 use alloy_token_program::{
     instruction::NftInstruction,
@@ -31,24 +23,30 @@ use alloy_token_program::{
 };
 
 use crate::cl_errors::CustomError;
-use spl_token::state::{ Account, Mint };
 
-pub struct Client {
+pub struct NftClient {
     pub client: RpcClient
 }
 
-impl Client {
+impl NftClient {
     pub fn new() -> Result<Self, CustomError> {
         
-        let url = "http://localhost:8899/".to_string();
+        let url = "https://api.devnet.solana.com".to_string();
         let commitment_config = CommitmentConfig::confirmed();
 
-        Ok(Client {
+        Ok(NftClient {
             client: RpcClient::new_with_commitment(
                 url,
                 commitment_config,
             )
         })
+    }
+
+    pub fn get_balance(&self, keypair: &Keypair) -> u64 {
+        let balance = self.client.get_balance(&keypair.pubkey()).unwrap();
+        println!("---> Balance: {}", &balance);
+
+        balance
     }
 
     pub fn create_alloy_data_accounts(
@@ -85,6 +83,7 @@ impl Client {
         );
 
         let latest_blockhash = self.client.get_latest_blockhash().unwrap();
+        println!("---> Latest Blockhash: {}", &latest_blockhash);
 
         let transaction: Transaction = Transaction::new_signed_with_payer(
             &[new_alloy_data_instruction],
