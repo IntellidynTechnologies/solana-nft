@@ -1,5 +1,5 @@
 [package]
-name = "program"
+name = "alloy-token-program"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,7 +10,7 @@ no-entrypoint = []
 
 [dependencies]
 solana-program = "1.9.5"
-spl-token = { version = "3.3.0", features = ["no-entrypoint"] }
+spl-token = { version = "3.2.0", features = ["no-entrypoint"] }
 borsh = "0.9.1"
 borsh-derive = "0.9.1"
 

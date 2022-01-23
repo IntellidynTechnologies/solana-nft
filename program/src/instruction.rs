@@ -75,9 +75,9 @@ impl NftInstruction {
 	pub fn update_alloy_price(
 		program_id: &Pubkey,
 		alloy_data_account: &Pubkey,
-		owner: &Pubkey,
 		id: u8,
 		new_price: u64,
+		owner: &Pubkey,
 		owner_nft_token_account: &Pubkey,
 	) -> Instruction {
 		let account_metas = vec![
@@ -105,17 +105,13 @@ impl NftInstruction {
     new_name: Option<String>,
     new_uri: Option<String>,
     new_price: Option<u64>,
-    payer: &Pubkey,
     nft_owner_address: &Pubkey,
     nft_token_account: &Pubkey,
-    new_token_mint_address: &Pubkey,
 	) -> Instruction {
 		let account_metas = vec![
             AccountMeta::new(*alloy_data_account, false),
-            AccountMeta::new(*payer, true),
-            AccountMeta::new(*nft_owner_address, false),
+            AccountMeta::new_readonly(*nft_owner_address, true),
             AccountMeta::new_readonly(*nft_token_account, false),
-            AccountMeta::new_readonly(*new_token_mint_address, false),
             AccountMeta::new_readonly(system_program::id(), false),
             AccountMeta::new_readonly(rent::id(), false),
 		];

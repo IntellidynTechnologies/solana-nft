@@ -16,7 +16,7 @@ use solana_program::{
         system_instruction,
         program_pack::{IsInitialized, Pack},
 };
-use spl_token::state::{Account, Mint};
+use spl_token::state::Account;
 
 pub struct Processor;
 
@@ -39,25 +39,25 @@ impl Processor {
 			        )
 			},
 			NftInstruction::UpdateAlloyPrice(args) => {
-			        msg!("Instruction: Update Alloy Price from Id");
-			        process_update_alloy_price(
-			                program_id,
-			                accounts,
-			                args.id,
-			                args.price,
-			        )
-	        	},
-		        NftInstruction::PurchaseAlloy(args) => {
-		        	msg!("Instruction: Purchase Alloy from Id");
-		            	process_purchase_alloy(
-		                	program_id,
-		                	accounts,
-		                	args.id,
-		                	args.new_name,
-		                	args.new_uri,
-		                	args.new_price,
-		            	)
-		        }
+				msg!("Instruction: Update Alloy Price from Id");
+				process_update_alloy_price(
+						program_id,
+						accounts,
+						args.id,
+						args.price,
+				)
+			},
+			NftInstruction::PurchaseAlloy(args) => {
+				msg!("Instruction: Purchase Alloy from Id");
+				process_purchase_alloy(
+					program_id,
+					accounts,
+					args.id,
+					args.new_name,
+					args.new_uri,
+					args.new_price,
+				)
+			}
 
 		}
 	}
@@ -211,7 +211,6 @@ pub fn process_update_alloy_price(
 pub fn process_purchase_alloy(
 	program_id: &Pubkey,
 	accounts: &[AccountInfo],
-	data: AlloyData,
 	id: u8,
 	new_name: Option<String>,
 	new_uri: Option<String>,
@@ -223,9 +222,7 @@ pub fn process_purchase_alloy(
 	let payer_info = next_account_info(account_iter)?;
 	let nft_owner_address_info = next_account_info(account_iter)?;
 	let nft_token_account_info = next_account_info(account_iter)?;
-	let new_token_mint_address_info = next_account_info(account_iter)?;
-	let system_account = next_account_info(account_iter)?;
-	let rent_account = next_account_info(account_iter)?;
+	let system_account_info = next_account_info(account_iter)?;
 
 	let alloy_data_seeds = &[
 		PREFIX.as_bytes(),
@@ -233,49 +230,70 @@ pub fn process_purchase_alloy(
 		&[id]
 	];
 
-	let (alloy_data_key, alloy_data_bump_seed) = Pubkey::find_program_address(alloy_data_seeds, program_id);
+	let (alloy_data_key, _alloy_data_bump_seed) = Pubkey::find_program_address(alloy_data_seeds, program_id);
 
-	if alloy_data_account_info.key != alloy_data_key {
+	if *alloy_data_account_info.key != alloy_data_key {
 		return Err(CustomError::InvalidAlloyDataKey.into());
 	}
 
-    	let mut alloy_data = AlloyData::from_acc_info(alloy_data_account_info)?;
+	let mut alloy_data = AlloyData::from_acc_info(alloy_data_account_info)?;
+	let token_acc: Account = assert_initialized(&nft_token_account_info)?;
 
-    	if data.name.len() > MAX_NAME_LENGTH {
-    		return Err(CustomError::NameTooLong.into());
-    	}
+	if *nft_owner_address_info.key != token_acc.owner {
+		return Err(CustomError::OwnerMismatch.into());
+	}
 
-    	if data.uri.len() > MAX_URI_LENGTH {
-    		return Err(CustomError::UriTooLong.into());
-    	}
+	if alloy_data.owner_address != token_acc.owner {
+		return Err(CustomError::InvalidOwner.into());
+	}
 
-    	alloy_data.id = data.id;
-    	alloy_data.name = data.name;
-    	alloy_data.uri = data.uri;
-    	alloy_data.last_price = data.last_price;
-    	alloy_data.listed_price = data.listed_price;
-    	alloy_data.owner_address = data.owner_address;
+	invoke(
+        &system_instruction::transfer(&payer_info.key, &nft_owner_address_info.key, alloy_data.listed_price as u64),
+        &[
+            payer_info.clone(),
+            nft_owner_address_info.clone(),
+            system_account_info.clone(),
+        ],
+    )?;
 
-    	let mut array_of_zeroes = vec![];
+	alloy_data.name = match new_name {
+		Some(new_name) => new_name,
+		None => alloy_data.name
+	};
 
-    	while array_of_zeroes.len() > MAX_NAME_LENGTH - alloy_data.name.len() {
-    		array_of_zeroes.push(0u8);
-    	}
+	alloy_data.uri = match new_uri {
+		Some(new_uri) => new_uri,
+		None => alloy_data.uri
+	};
 
-    	alloy_data.name = alloy_data.name.clone() + std::str::from_utf8(&array_of_zeroes).unwrap();
+	alloy_data.last_price = alloy_data.listed_price;
+    alloy_data.listed_price = match new_price {
+        Some(price) => {
+            price
+        }
+        None => {
+            alloy_data.listed_price
+        }
+    };
 
-    	let mut array_of_zeroes = vec![];
+	let mut array_of_zeroes = vec![];
 
-    	while array_of_zeroes.len() > MAX_URI_LENGTH - alloy_data.uri.len() {
-    		array_of_zeroes.push(0u8);
-    	}
+	while array_of_zeroes.len() > MAX_NAME_LENGTH - alloy_data.name.len() {
+		array_of_zeroes.push(0u8);
+	}
 
-    	alloy_data.uri = alloy_data.uri.clone() + std::str::from_utf8(&array_of_zeroes).unwrap();
+	alloy_data.name = alloy_data.name.clone() + std::str::from_utf8(&array_of_zeroes).unwrap();
 
-    	alloy_data.serialize(&mut *alloy_data_account_info.data.borrow_mut())?;
-    	msg!("Alloy Data Saved!");
+	let mut array_of_zeroes = vec![];
 
-	Ok(())
+	while array_of_zeroes.len() > MAX_URI_LENGTH - alloy_data.uri.len() {
+		array_of_zeroes.push(0u8);
+	}
+
+	alloy_data.uri = alloy_data.uri.clone() + std::str::from_utf8(&array_of_zeroes).unwrap();
+
+	alloy_data.serialize(&mut *alloy_data_account_info.data.borrow_mut())?;
+	msg!("Alloy Data Replaced!");
 
 	Ok(())
 }
