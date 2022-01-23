@@ -1,6 +1,7 @@
-pub mod helpers;
-
-use helpers::*;
+pub mod client;
+pub mod cl_errors;
+use client::*;
+use cl_errors::*;
 
 use {
     solana_client::rpc_client::RpcClient,
@@ -15,6 +16,7 @@ use {
 
 fn main() {
     let client = Client::new();
+
     // Get our Wallet KeyPair
     let wallet_keypair = get_wallet();
     let wallet_pubkey: Pubkey = wallet_keypair.pubkey();

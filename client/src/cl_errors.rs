@@ -1,5 +1,6 @@
 use solana_client::client_error::ClientError;
 
+#[derive(Debug)]
 pub enum CustomError {
     ConfigReadError,
     ConfigParseError,
