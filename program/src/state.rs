@@ -1,78 +1,39 @@
-//! State transition types
-use borsh::{BorshDeserialize, BorshSchema, BorshSerialize};
-use solana_program::pubkey::Pubkey;
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, Copy, PartialEq, BorshSchema)]
-pub enum MintVersion {
-    Uninitialized,
-    Initialized,
+use solana_program::{
+	pubkey::Pubkey,
+	program_error::ProgramError,
+	account_info::AccountInfo,
+	borsh as sol_borsh
+};
+use crate::error::CustomError;
+
+use borsh::{ BorshSerialize, BorshDeserialize };
+
+pub const PREFIX: &str = "alloy";
+pub const MAX_NAME_LENGTH: usize = 32;
+pub const MAX_URI_LENGTH: usize = 200;
+pub const MAX_DATA_SIZE: usize = 1 + 4 + MAX_NAME_LENGTH + 4 + MAX_URI_LENGTH + 8 + 8 +32;
+
+#[derive(Debug, BorshSerialize, BorshDeserialize, PartialEq, Clone)]
+pub struct AlloyData {
+	pub id: u8,
+	pub name: String,
+	pub uri: String,
+	pub last_price: u64,
+	pub listed_price: u64,
+	pub owner_address: Pubkey,
 }
 
-pub const SYMBOL_LEN: usize = 8;
-pub const NAME_LEN: usize = 32;
+impl AlloyData {
+	pub fn from_acc_info(acc_info: &AccountInfo) -> Result<Self, ProgramError> {
+		
+		let acc_info_data = &acc_info.data.borrow_mut();
 
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, BorshSchema)]
-pub struct Mint {
-    pub version: MintVersion,
-    pub symbol: [u8; SYMBOL_LEN],
-    pub name: [u8; NAME_LEN],
-    pub authority: Pubkey,
-}
+		if acc_info_data.len() != MAX_DATA_SIZE {
+			return Err(CustomError::DataTypeMismatch.into());
+		}
 
-impl Mint {
-    pub const LEN: u64 = 73;
-    pub fn new(symbol: [u8; 8], name: [u8; NAME_LEN], authority: Pubkey) -> Self {
-        Self {
-            version: MintVersion::Initialized,
-            symbol,
-            name,
-            authority,
-        }
-    }
-    pub fn is_initialized(&self) -> bool {
-        self.version == MintVersion::Initialized
-    }
-}
+		let result = sol_borsh::try_from_slice_unchecked(acc_info_data)?;
 
-pub const URI_LEN: usize = 256;
-
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, Copy, PartialEq, BorshSchema)]
-pub enum TokenStatus {
-    Uninitialized,
-    Initialized,
-}
-
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, BorshSchema)]
-pub struct Token {
-    pub version: TokenStatus,
-    pub mint: Pubkey,
-    pub owner: Pubkey,
-    pub approval: Option<Pubkey>,
-}
-
-impl Token {
-    pub const LEN: u64 = 98;
-}
-
-//NOTE:  BorshSchema can be fixed by wrapping OR with BorshSchema changes with Rust 1.51
-//the trait `BorshSchema` is not implemented for `[u8; 256]`
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, Copy, PartialEq)]
-pub enum TokenDataStatus {
-    Uninitialized,
-    Initialized,
-}
-
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone)]
-pub struct TokenData {
-    pub version: TokenDataStatus,
-    pub token: Pubkey,
-    pub hash: Pubkey,
-    pub uri: [u8; URI_LEN],
-}
-
-impl TokenData {
-    pub const LEN: u64 = 321;
-
-    pub fn get_uri(&self) -> url::Url {
-        url::Url::parse(&String::from_utf8(self.uri.to_vec()).unwrap()).unwrap()
-    }
+		Ok(result)
+	}
 }

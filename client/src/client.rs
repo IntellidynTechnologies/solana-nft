@@ -20,6 +20,7 @@ pub struct Client {
 
 impl Client {
     pub fn new() -> Result<Self, CustomError> {
+        
         let url = "http://localhost:8899/".to_string();
         let commitment_config = CommitmentConfig::confirmed();
 
@@ -31,22 +32,30 @@ impl Client {
         })
     }
 
-    pub fn create_mint_account(&self, wallet_pk: &Pubkey) -> Result<Pubkey, CustomError> {
-        //mint_account_pk
-        let mint_public_key = Pubkey::create_with_seed(user_id, "NFT", program_id);
+    pub fn create_mint_account(
+        &self,
+        program_id: &Pubkey,
+        data_len: usize,
+        wallet_pk: &Pubkey
+    ) -> Result<Pubkey, CustomError> {
+
+        let mint_public_key = Pubkey::new_unique();
+        println!(":{?}", mint_public_key);
         
         //minimum balance for rent exemption
         let lamports_requirment = self.client.get_minimum_balance_for_rent_exemption(data_len)?;
 
-        //create_account_instruction
+        //create account instruction
 
         //initialize mint instruction
 
         //latest blockhash
+        let latest_blockhash = self.client.get_latest_blockhash().unwrap();
 
         //transaction
 
         //result
+        let result = self.client.send_and_confirm_transaction_with_spinner(&transaction);
 
         //check result
 
@@ -88,5 +97,7 @@ impl Client {
         let account_pubkey = Pubkey::create_with_seed(user_id, "NFT", program_id);
 
         let lamport_req = self.client.get_minimum_balance_for_rent_exemption(data_len)?;
+
+        Ok(())
     }
 }

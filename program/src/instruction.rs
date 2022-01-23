@@ -1,137 +1,137 @@
-use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
-    instruction::{AccountMeta, Instruction},
-    pubkey::Pubkey,
-    sysvar,
+	sysvar::rent,
+	system_program,
+	pubkey::Pubkey,
+	instruction::{ Instruction, AccountMeta },
 };
+use borsh::{ BorshSerialize, BorshDeserialize };
+use crate::state::AlloyData;
 
-use crate::state::{
-    NAME_LEN,
-    SYMBOL_LEN,
-    URI_LEN
-};
-
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq)]
-pub struct MintData {
-    pub symbol: [u8; SYMBOL_LEN],
-    pub name: [u8; NAME_LEN],
+#[derive(Debug, BorshSerialize, BorshDeserialize, Clone, PartialEq)]
+pub struct CreateAlloyDataAccountArgs {
+	pub data: AlloyData,
+	pub id: u8
 }
 
-impl MintData {
-    pub fn new<S: AsRef<str>>(symbol: S, name: S) -> Result<Self, &'static str> {
-        let symbol = symbol.as_ref().as_bytes();
-        let name = name.as_ref().as_bytes();
-        if symbol.len() > SYMBOL_LEN || name.len() > NAME_LEN {
-            return Err("symbol or name too long");
-        }
-        let mut this = Self {
-            name: [0; NAME_LEN],
-            symbol: [0; SYMBOL_LEN],
-        };
-        // any shorter notation
-        let (left, _) = this.name.split_at_mut(name.len());
-        left.copy_from_slice(name);
-
-        let (left, _) = this.symbol.split_at_mut(symbol.len());
-        left.copy_from_slice(symbol);
-
-        Ok(this)
-    }
+#[derive(Debug, BorshSerialize, BorshDeserialize, Clone, PartialEq)]
+pub struct UpdateAlloyPriceArgs {
+	pub id: u8,
+	pub price: u64,
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq)]
-pub struct TokenDataArgs {
-    pub hash: Pubkey,
-    pub uri: [u8; URI_LEN],
+#[derive(Debug, BorshSerialize, BorshDeserialize, Clone, PartialEq)]
+pub struct PurchaseAlloyArgs {
+	pub id: u8,
+	pub new_name: Option<String>,
+	pub new_uri: Option<String>,
+	pub new_price: Option<u64>,
 }
 
-impl TokenDataArgs {
-    pub fn new(hash: Pubkey, uri: url::Url) -> Result<Self, &'static str> {
-        let uri = uri.as_str().as_bytes();
-        if uri.len() > URI_LEN {
-            return Err("uri too long");
-        }
-        let mut this = Self {
-            hash,
-            uri: [0; URI_LEN],
-        };
-        let (left, _) = this.uri.split_at_mut(uri.len());
-        left.copy_from_slice(uri);
-        Ok(this)
-    }
-}
-
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq)]
+#[derive(Debug, BorshSerialize, BorshDeserialize, Clone, PartialEq)]
 pub enum NftInstruction {
-    InitializeMint(MintData),
-    InitializeToken(TokenDataArgs),
-    Transfer,
-    Approve,
-    Burn,
+	CreateAlloyDataAccount(CreateAlloyDataAccountArgs),
+	// UpdateAlloyPrice(UpdateAlloyPriceArgs),
+	// PurchaseAlloy(PurchaseAlloyArgs),
 }
 
 impl NftInstruction {
-    pub fn initialize_mint(
-        mint_account: &Pubkey,
-        data: MintData,
-        authority: &Pubkey,
-    ) -> Instruction {
-        let data = NftInstruction::InitializeMint(data);
-        let accounts = vec![
-            AccountMeta::new(*mint_account, false),
-            AccountMeta::new_readonly(sysvar::rent::id(), false),
-            AccountMeta::new_readonly(*authority, true),
-        ];
-        Instruction::new_with_borsh(crate::id(), &data, accounts)
-    }
+	pub fn create_alloy_data_accounts(
+		program_id: &Pubkey,
+		alloy_data_account: &Pubkey,
+		payer: &Pubkey,
+		id: u8,
+		name: String,
+		uri: String,
+		last_price: u64,
+		listed_price: u64,
+		owner_address: &Pubkey,
+	) -> Instruction {
+		let account_metas = vec![
+			AccountMeta::new(*alloy_data_account, false),
+			AccountMeta::new(*payer, true),
+			AccountMeta::new_readonly(system_program::id(), false),
+			AccountMeta::new_readonly(rent::id(), false)
+		];
 
-    pub fn initialize_token(
-        token: &Pubkey,
-        token_data: &Pubkey,
-        mint: &Pubkey,
-        owner: &Pubkey,
-        input: TokenDataArgs,
-        mint_authority: &Pubkey,
-    ) -> Instruction {
-        let data = NftInstruction::InitializeToken(input);
-        let accounts = vec![
-            AccountMeta::new(*token, false),
-            AccountMeta::new(*token_data, false),
-            AccountMeta::new_readonly(*mint, false),
-            AccountMeta::new_readonly(sysvar::rent::id(), false),
-            AccountMeta::new_readonly(*owner, false),
-            AccountMeta::new_readonly(*mint_authority, true),
-        ];
-        Instruction::new_with_borsh(crate::id(), &data, accounts)
-    }
+		let alloy_data = Self::CreateAlloyDataAccount(CreateAlloyDataAccountArgs {
+			data: AlloyData {
+				id,
+				name,
+				uri,
+				last_price,
+				listed_price,
+				owner_address: *owner_address
+			},
+			id,
+		});
 
-    pub fn transfer(token: Pubkey, new_owner: Pubkey, approval_or_owner: Pubkey) -> Instruction {
-        let data = NftInstruction::Transfer;
-        let accounts = vec![
-            AccountMeta::new(token, false),
-            AccountMeta::new_readonly(new_owner, false),
-            AccountMeta::new_readonly(approval_or_owner, true),
-        ];
-        Instruction::new_with_borsh(crate::id(), &data, accounts)
-    }
+		Instruction {
+			program_id: *program_id,
+			accounts: account_metas,
+			data: alloy_data.try_to_vec().unwrap()
+		}
+	}
 
-    pub fn approve(token: Pubkey, new_approval: Pubkey, approval_or_owner: Pubkey) -> Instruction {
-        let data = Self::Approve;
-        let accounts = vec![
-            AccountMeta::new(token, false),
-            AccountMeta::new_readonly(new_approval, false),
-            AccountMeta::new_readonly(approval_or_owner, true),
-        ];
-        Instruction::new_with_borsh(crate::id(), &data, accounts)
-    }
+	// pub fn update_alloy_price(
+	// 	program_id: &Pubkey,
+	// 	alloy_data_account: &Pubkey,
+	// 	owner: &Pubkey,
+	// 	id: u8,
+	// 	new_price: u64,
+	// 	listed_price: u64,
+	// 	owner_nft_token_account: &Pubkey,
+	// ) -> Instruction {
+	// 	let account_metas = vec![
+	// 		AccountMeta::new(*alloy_data_account, false),
+	// 		AccountMeta::new_readonly(*owner, true),
+	// 		AccountMeta::new_readonly(*owner_nft_token_account, false)
+	// 	];
 
-    pub fn burn(token: Pubkey, token_data: Pubkey, approval_or_owner: Pubkey) -> Instruction {
-        let data = Self::Burn;
-        let accounts = vec![
-            AccountMeta::new(token, false),
-            AccountMeta::new(token_data, false),
-            AccountMeta::new(approval_or_owner, true),
-        ];
-        Instruction::new_with_borsh(crate::id(), &data, accounts)
-    }
+	// 	let update_data = Self::UpdateAlloyPrice(UpdateAlloyPriceArgs {
+	// 		id,
+	// 		price: new_price
+	// 	});
+
+	// 	Instruction {
+	// 		program_id: *program_id,
+	// 		accounts: account_metas,
+	// 		data: update_data.try_to_vec().unwrap()
+	// 	}
+	// }
+
+	// pub fn purchase_alloy(
+ //    program_id: &Pubkey,
+ //    alloy_data_account: &Pubkey,
+ //    id: u8,
+ //    new_name: Option<String>,
+ //    new_uri: Option<String>,
+ //    new_price: Option<u64>,
+ //    payer: &Pubkey,
+ //    nft_owner_address: &Pubkey,
+ //    nft_token_account: &Pubkey,
+ //    new_token_mint_address: &Pubkey,
+	// ) -> Instruction {
+	// 	let account_metas = vec![
+ //            AccountMeta::new(*alloy_data_account, false),
+ //            AccountMeta::new(*payer, true),
+ //            AccountMeta::new(*nft_owner_address, false),
+ //            AccountMeta::new_readonly(*nft_token_account, false),
+ //            AccountMeta::new_readonly(*new_token_mint_address, false),
+ //            AccountMeta::new_readonly(system_program::id(), false),
+ //            AccountMeta::new_readonly(rent::id(), false),
+	// 	];
+
+	// 	let purchase_data = Self::PurchaseAlloy(PurchaseAlloyArgs {
+ //            id,
+ //            new_name,
+ //            new_uri,
+ //            new_price,
+	// 	});
+
+	// 	Instruction {
+	// 		program_id: *program_id,
+	// 		accounts: account_metas,
+	// 		data: purchase_data.try_to_vec().unwrap()
+	// 	}
+	// }
 }

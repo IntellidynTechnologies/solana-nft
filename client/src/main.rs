@@ -14,6 +14,7 @@ use {
 };
 
 fn main() {
+    let client = Client::new();
     // Get our Wallet KeyPair
     let wallet_keypair = get_wallet();
     let wallet_pubkey: Pubkey = wallet_keypair.pubkey();
@@ -22,7 +23,7 @@ fn main() {
     println!("{:?}", program_key);
 
     // Connect to the Solana Client and pull our wallet balance
-    let client = RpcClient::new(CLIENT_URL.to_string());
+    let mint_account = client.create_mint_account();
     let wallet_balance = client.get_balance(&wallet_pubkey).unwrap();
 
     println!("Wallet Pubkey: {}", wallet_pubkey);
