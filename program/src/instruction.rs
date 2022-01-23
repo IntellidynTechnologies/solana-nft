@@ -30,8 +30,8 @@ pub struct PurchaseAlloyArgs {
 #[derive(Debug, BorshSerialize, BorshDeserialize, Clone, PartialEq)]
 pub enum NftInstruction {
 	CreateAlloyDataAccount(CreateAlloyDataAccountArgs),
-	// UpdateAlloyPrice(UpdateAlloyPriceArgs),
-	// PurchaseAlloy(PurchaseAlloyArgs),
+	UpdateAlloyPrice(UpdateAlloyPriceArgs),
+	PurchaseAlloy(PurchaseAlloyArgs),
 }
 
 impl NftInstruction {
@@ -72,66 +72,65 @@ impl NftInstruction {
 		}
 	}
 
-	// pub fn update_alloy_price(
-	// 	program_id: &Pubkey,
-	// 	alloy_data_account: &Pubkey,
-	// 	owner: &Pubkey,
-	// 	id: u8,
-	// 	new_price: u64,
-	// 	listed_price: u64,
-	// 	owner_nft_token_account: &Pubkey,
-	// ) -> Instruction {
-	// 	let account_metas = vec![
-	// 		AccountMeta::new(*alloy_data_account, false),
-	// 		AccountMeta::new_readonly(*owner, true),
-	// 		AccountMeta::new_readonly(*owner_nft_token_account, false)
-	// 	];
+	pub fn update_alloy_price(
+		program_id: &Pubkey,
+		alloy_data_account: &Pubkey,
+		owner: &Pubkey,
+		id: u8,
+		new_price: u64,
+		owner_nft_token_account: &Pubkey,
+	) -> Instruction {
+		let account_metas = vec![
+			AccountMeta::new(*alloy_data_account, false),
+			AccountMeta::new_readonly(*owner, true),
+			AccountMeta::new_readonly(*owner_nft_token_account, false)
+		];
 
-	// 	let update_data = Self::UpdateAlloyPrice(UpdateAlloyPriceArgs {
-	// 		id,
-	// 		price: new_price
-	// 	});
+		let update_data = Self::UpdateAlloyPrice(UpdateAlloyPriceArgs {
+			id,
+			price: new_price
+		});
 
-	// 	Instruction {
-	// 		program_id: *program_id,
-	// 		accounts: account_metas,
-	// 		data: update_data.try_to_vec().unwrap()
-	// 	}
-	// }
+		Instruction {
+			program_id: *program_id,
+			accounts: account_metas,
+			data: update_data.try_to_vec().unwrap()
+		}
+	}
 
-	// pub fn purchase_alloy(
- //    program_id: &Pubkey,
- //    alloy_data_account: &Pubkey,
- //    id: u8,
- //    new_name: Option<String>,
- //    new_uri: Option<String>,
- //    new_price: Option<u64>,
- //    payer: &Pubkey,
- //    nft_owner_address: &Pubkey,
- //    nft_token_account: &Pubkey,
- //    new_token_mint_address: &Pubkey,
-	// ) -> Instruction {
-	// 	let account_metas = vec![
- //            AccountMeta::new(*alloy_data_account, false),
- //            AccountMeta::new(*payer, true),
- //            AccountMeta::new(*nft_owner_address, false),
- //            AccountMeta::new_readonly(*nft_token_account, false),
- //            AccountMeta::new_readonly(*new_token_mint_address, false),
- //            AccountMeta::new_readonly(system_program::id(), false),
- //            AccountMeta::new_readonly(rent::id(), false),
-	// 	];
+	pub fn purchase_alloy(
+    program_id: &Pubkey,
+    alloy_data_account: &Pubkey,
+    id: u8,
+    new_name: Option<String>,
+    new_uri: Option<String>,
+    new_price: Option<u64>,
+    payer: &Pubkey,
+    nft_owner_address: &Pubkey,
+    nft_token_account: &Pubkey,
+    new_token_mint_address: &Pubkey,
+	) -> Instruction {
+		let account_metas = vec![
+            AccountMeta::new(*alloy_data_account, false),
+            AccountMeta::new(*payer, true),
+            AccountMeta::new(*nft_owner_address, false),
+            AccountMeta::new_readonly(*nft_token_account, false),
+            AccountMeta::new_readonly(*new_token_mint_address, false),
+            AccountMeta::new_readonly(system_program::id(), false),
+            AccountMeta::new_readonly(rent::id(), false),
+		];
 
-	// 	let purchase_data = Self::PurchaseAlloy(PurchaseAlloyArgs {
- //            id,
- //            new_name,
- //            new_uri,
- //            new_price,
-	// 	});
+		let purchase_data = Self::PurchaseAlloy(PurchaseAlloyArgs {
+            id,
+            new_name,
+            new_uri,
+            new_price,
+		});
 
-	// 	Instruction {
-	// 		program_id: *program_id,
-	// 		accounts: account_metas,
-	// 		data: purchase_data.try_to_vec().unwrap()
-	// 	}
-	// }
+		Instruction {
+			program_id: *program_id,
+			accounts: account_metas,
+			data: purchase_data.try_to_vec().unwrap()
+		}
+	}
 }
