@@ -2,11 +2,11 @@ use solana_client::{
     client_error::ClientError,
     rpc_client::RpcClient,
     rpc_config::{ RpcAccountInfoConfig, RpcProgramAccountsConfig },
-    rpc_filter::{ RpcFilterType, MemcmpEncodedBytes, RpcFilterType::Memcmp },
+    rpc_filter::{ RpcFilterType, MemcmpEncodedBytes, Memcmp },
 };
 
 use solana_sdk::{
-    commitment_config::CommitmentConfig,
+    commitment_config::{ CommitmentConfig, CommitmentLevel },
     message::Message,
     signer::{
         keypair::{read_keypair_file, write_keypair_file, Keypair},
@@ -209,12 +209,13 @@ impl Client {
         let account = self.client.get_account(&alloy_data_key).unwrap();
         let alloy_data: AlloyData = try_from_slice_unchecked(&account.data).unwrap();
         
-        let filter1 = RpcFilterType::Memcmp {
+        let filter1 = Memcmp{
             offset: 0,
-            bytes: MemcmpEncodedBytes::Binary(alloy_data.owner_address.to_string()),
+            bytes: MemcmpEncodedBytes::Base58(alloy_data.owner_address.to_string()),
             encoding: None,
         };
         let filter2 = RpcFilterType::DataSize(165);
+        
         let account_config = RpcAccountInfoConfig {
             encoding: Some(UiAccountEncoding::Base64),
             data_slice: None,
@@ -224,7 +225,7 @@ impl Client {
         };
     
         let config = RpcProgramAccountsConfig {
-            filters: Some(vec![filter1, filter2]),
+            filters: Some(vec![solana_client::rpc_filter::RpcFilterType::Memcmp(filter1), filter2]),
             account_config,
             with_context: None,
         };
@@ -241,7 +242,7 @@ impl Client {
             new_uri,
             new_price,
             &payer.pubkey(),
-            alloy_data.owner_address,
+            &alloy_data.owner_address,
         );
     
         let latest_blockhash = self.client.get_latest_blockhash().unwrap();
@@ -252,6 +253,8 @@ impl Client {
             &vec![payer],
             latest_blockhash,
         );
+
+        let _ = self.client.send_and_confirm_transaction_with_spinner(&transaction);
 
         let account = self.client.get_account(&alloy_data_key).unwrap();
         let alloy_data: AlloyData = try_from_slice_unchecked(&account.data).unwrap();
