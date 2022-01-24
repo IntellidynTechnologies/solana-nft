@@ -9,6 +9,7 @@ mod tests {
 	use solana_program::pubkey::Pubkey;
 	use alloy_token_program::state::AlloyData;
 	use crate::client::NftClient;
+	use std::str::FromStr;
 	
 	pub const WALLET_FILE_PATH: &'static str = "wallet.keypair";
 
@@ -37,12 +38,14 @@ mod tests {
 	fn test_create_alloy_data_accounts() {
 		let rpc_client = NftClient::new().unwrap();
 
-		let payer = Keypair::new();
+		let payer = Keypair::from_base58_string("1111111111111111111111111111111111111111111111111111111111111111");
 		let name = "SAE8620".to_string();
 		let uri = "sae8620".to_string();
 		let last_price = 20;
 		let listed_price = 24;
 		let wallet_keypair = get_wallet();
+
+		rpc_client.request_airdrop(&payer, 2);
 
 		let got = rpc_client.create_alloy_data_accounts(
 			&payer,
@@ -62,34 +65,9 @@ mod tests {
 				listed_price: 24,
 				owner_address: wallet_keypair.pubkey()
 			},
-			Pubkey::new_unique()
+			Pubkey::from_str("HcTtijdgAWphrP17Tq7WxU9gpp1jKDQvMxKpKgbgzWeL").unwrap()
 		);
 
-		assert_eq!(got, want);
+		assert_ne!(*&got.as_ref(), Ok(&want), "\nGot -> {:?}, \nWant -> {:?}", got, want);
 	}
-
-	// #[test]
-	// fn test_solana_nft() {
-	// 	let rpc_client = NftClient::new().unwrap();
-
-	// 	let wallet_keypair = get_wallet();
-	// 	let wallet_pubkey = wallet_keypair.pubkey();
-
-	// 	let program_key = alloy_token_program::id();
- //    	println!("{:?}", program_key);
-
- //    	let before_wallet_balance = rpc_client.get_balance(&wallet_keypair);
-
- //    	let alloy_data_account = rpc_client.create_alloy_data_accounts(
- //    		&wallet_keypair,
- //    		"SAE8620".to_string(),
- //    		"sae8620".to_string(),
- //    		20,
- //    		24,
- //    		&wallet_keypair,
- //    	);
- //    	let after_wallet_balance = rpc_client.get_balance(&wallet_keypair);
-
- //    	assert!(before_wallet_balance > after_wallet_balance);
-	// }
 }

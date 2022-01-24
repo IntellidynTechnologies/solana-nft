@@ -1,10 +1,11 @@
 use solana_client::client_error::ClientError;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum CustomError {
     ConfigReadError,
     ConfigParseError,
     InvalidConfig,
+    InvalidInput,
     SerializationError,
     ClientError,
     KeyDerivationError,

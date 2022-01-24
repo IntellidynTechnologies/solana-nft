@@ -49,6 +49,10 @@ impl NftClient {
         balance
     }
 
+    pub fn request_airdrop(&self, keypair: &Keypair, lamports: u64) {
+        self.client.request_airdrop(&keypair.pubkey(), lamports);
+    }
+
     pub fn create_alloy_data_accounts(
         &self,
         payer: &Keypair,
@@ -57,7 +61,7 @@ impl NftClient {
         last_price: u64,
         listed_price: u64,
         owner: &Keypair 
-    ) -> (AlloyData, Pubkey) {
+    ) -> Result<(AlloyData, Pubkey), CustomError> {
         let mint_account = Keypair::new();
 
         let program_key = alloy_token_program::id();
@@ -69,6 +73,7 @@ impl NftClient {
 
         let alloy_data_seeds = &[PREFIX.as_bytes(), &program_key.as_ref(),&[id]];
         let (alloy_data_key, _) = Pubkey::find_program_address(alloy_data_seeds, &program_key);
+        println!("Alloy Data Key -> {:?}", &alloy_data_key);
 
         let new_alloy_data_instruction = NftInstruction::create_alloy_data_accounts(
             &program_key,
@@ -81,6 +86,7 @@ impl NftClient {
             listed_price,
             &owner.pubkey()
         );
+        println!("{:?}", new_alloy_data_instruction);
 
         let latest_blockhash = self.client.get_latest_blockhash().unwrap();
         println!("---> Latest Blockhash: {}", &latest_blockhash);
@@ -88,12 +94,12 @@ impl NftClient {
         let transaction: Transaction = Transaction::new_signed_with_payer(
             &[new_alloy_data_instruction],
             Some(&payer.pubkey()),
-            &[&mint_account, &payer],
+            &[payer],
             latest_blockhash
         );
 
         let result = self.client.send_and_confirm_transaction_with_spinner(&transaction);
-
+        println!("Result --> {:?}", &result);
         if result.is_ok() {
             println!(
                 "Successfully created a Mint Account with Pubkey: {:?}",
@@ -101,10 +107,15 @@ impl NftClient {
             )
         };
     
-        let account = self.client.get_account(&alloy_data_key).unwrap();
-        let alloy_data: AlloyData = try_from_slice_unchecked(&account.data).unwrap();
+        let account_data = self.client.get_account_data(&alloy_data_key);
+        
+        if !&account_data.is_err() && &account_data.as_ref().unwrap().len() != &0 {
+            let alloy_data: AlloyData = try_from_slice_unchecked(&account_data.unwrap()).unwrap();
 
-        (alloy_data, alloy_data_key)
+            Ok((alloy_data, alloy_data_key))
+        } else {
+            return Err(CustomError::InvalidInput.into());
+        }
     }
 
     pub fn update_alloy_data_account(
