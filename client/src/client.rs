@@ -86,7 +86,11 @@ impl NftClient {
 
         let alloy_data_seeds = &[PREFIX.as_bytes(), &program_key.as_ref(),&[id]];
         let (alloy_data_key, _) = Pubkey::find_program_address(alloy_data_seeds, &program_key);
-        println!("Alloy Data Key -> {:?}", &alloy_data_key);
+        println!("---> Alloy Data Key: {:?}", &alloy_data_key);
+
+        println!("--->\n Id: {},\n Name: {},\n Uri: {},\n Last_price: {},\n Listed_price: {},\n Owner: {}\n",
+            id, name, uri, last_price, listed_price, &owner.pubkey()
+        );
 
         let new_alloy_data_instruction = NftInstruction::create_alloy_data_accounts(
             &program_key,
@@ -110,11 +114,11 @@ impl NftClient {
         );
 
         let result = self.client.send_and_confirm_transaction_with_spinner_and_commitment(&transaction, CommitmentConfig::confirmed());
-        println!("Result --> {:#?}", &result);
+        println!("---> Result: {:#?}", &result);
         if result.is_ok() {
             println!(
                 "Successfully created a Mint Account with Pubkey: {:?}",
-                owner
+                payer
             )
         };
     
@@ -122,6 +126,11 @@ impl NftClient {
         
         if !&account_data.is_err() && &account_data.as_ref().unwrap().len() != &0 {
             let alloy_data: AlloyData = try_from_slice_unchecked(&account_data.unwrap()).unwrap();
+
+            println!(
+                "Create alloy data account with owner {:?} and key {:?} and name of {:?} and id of {}",
+                &alloy_data.owner_address, &alloy_data_key, &alloy_data.name, &alloy_data.id
+            );
 
             Ok((alloy_data, alloy_data_key))
         } else {

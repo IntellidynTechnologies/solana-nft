@@ -29,7 +29,7 @@ mod tests {
 	fn test_program_id() {
 		let got = alloy_token_program::id().to_string();
 
-		let want = "9Fnz4RCe3SC3jNyGvkaHTZ4P51Cd5DVfnkHKaRcmmoRw".to_string();
+		let want = "GKAL7MXHwHB7JqLf6EQWpAE29zdfkPqdckpsYY77JyV1".to_string();
 
 		assert_eq!(want, got, "Alloy Token Program Key: {}, but got: {}", want, got);
 	}
@@ -38,15 +38,22 @@ mod tests {
 	fn test_create_alloy_data_accounts() {
 		let rpc_client = NftClient::new().unwrap();
 
-		let payer = Keypair::from_base58_string("1111111111111111111111111111111111111111111111111111111111111111");
+		let program_key = alloy_token_program::id();
+		let add_balance_to_program = rpc_client.airdrop(&program_key, 2);
+		println!("Signature: {}", &add_balance_to_program.unwrap());
+
+		let owner = Keypair::new();
 		let name = "SAE8620".to_string();
 		let uri = "sae8620".to_string();
 		let last_price = 20;
 		let listed_price = 24;
 		let wallet_keypair = get_wallet();
+		
+		let add_balance_to_owner = rpc_client.airdrop(&owner.pubkey(), 2);
+		println!("Signature: {}", &add_balance_to_owner.unwrap());
 
-		rpc_client.airdrop(&payer.pubkey(), 2);
-		rpc_client.airdrop(&wallet_keypair.pubkey(), 2);
+		let add_balance_to_wallet = rpc_client.airdrop(&wallet_keypair.pubkey(), 2);
+		println!("Signature: {}", &add_balance_to_wallet.unwrap());
 
 		let got = rpc_client.create_alloy_data_accounts(
 			&wallet_keypair,
@@ -54,7 +61,7 @@ mod tests {
 			uri,
 			last_price,
 			listed_price,
-			&payer,
+			&owner,
 			Some(1),
 		);
 
@@ -65,9 +72,9 @@ mod tests {
 				uri:"sae8620".to_string(),
 				last_price: 20,
 				listed_price: 24,
-				owner_address: payer.pubkey()
+				owner_address: Pubkey::from_str("3JS1m9mNKi28rPb9B84xRLN5BYkhbfzJLQP6iS9Q2RWx").unwrap()
 			},
-			Pubkey::from_str("AsVr8Cd6HwtRtZ3ypX4yjcw96aMVc5si8LRN5P3ydYBJ").unwrap()
+			Pubkey::from_str("BjMraAFVTYT5n1XibhabgDVTGU9qmuopwjTMNRQ6FYE6").unwrap()
 		);
 
 		assert_eq!(*&got.as_ref(), Ok(&want), "\nGot -> {:?}, \nWant -> {:?}", got, want);

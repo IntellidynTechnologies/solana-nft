@@ -35,7 +35,6 @@ impl Processor {
 					program_id,
 			                accounts,
 			                args.data,
-			                args.id,
 			        )
 			},
 			NftInstruction::UpdateAlloyPrice(args) => {
@@ -67,7 +66,6 @@ pub fn process_create_alloy_data_accounts(
 	program_id: &Pubkey,
 	accounts: &[AccountInfo],
 	data: AlloyData,
-	id: u8
 ) -> ProgramResult {
 	let account_iter = &mut accounts.iter();
 
@@ -79,14 +77,16 @@ pub fn process_create_alloy_data_accounts(
 	let alloy_data_seeds = &[
 		PREFIX.as_bytes(),
 		program_id.as_ref(),
-		&[id]
+		&[data.id]
 	];
 
 	let (alloy_data_key, alloy_data_bump_seed) = Pubkey::find_program_address(alloy_data_seeds, program_id);
+	msg!("Alloy Data Key: {:?}", &alloy_data_key);
+
 	let alloy_data_authority_signer_seeds = &[
 		PREFIX.as_bytes(),
         	program_id.as_ref(),
-        	&[id],
+        	&[data.id],
         	&[alloy_data_bump_seed],
     	];
 
@@ -152,7 +152,7 @@ pub fn process_create_alloy_data_accounts(
     	alloy_data.uri = alloy_data.uri.clone() + std::str::from_utf8(&array_of_zeroes).unwrap();
 
     	alloy_data.serialize(&mut *alloy_data_account_info.data.borrow_mut())?;
-    	msg!("Alloy Data Saved!");
+    	msg!("Alloy Data Saved! {:#?}", alloy_data);
 
 	Ok(())
 }
