@@ -10,8 +10,10 @@ use solana_sdk::{
         keypair::Keypair,
         Signer,
     },
+    signature::Signature,
     transaction::Transaction,
     borsh::try_from_slice_unchecked,
+    program_pack::Pack
 };
 use solana_program::pubkey::Pubkey;
 
@@ -21,6 +23,8 @@ use alloy_token_program::{
     instruction::NftInstruction,
     state::{AlloyData, PREFIX},
 };
+
+use spl_token::state::Mint;
 
 use crate::cl_errors::CustomError;
 
@@ -49,8 +53,12 @@ impl NftClient {
         balance
     }
 
-    pub fn request_airdrop(&self, keypair: &Keypair, lamports: u64) {
-        self.client.request_airdrop(&keypair.pubkey(), lamports);
+    pub fn airdrop(&self, to_pubkey: &Pubkey, lamports: u64) -> Result<Signature, CustomError> {
+        let blockhash = self.client.get_latest_blockhash()?;
+        let signature = self.client.request_airdrop_with_blockhash(to_pubkey, lamports, &blockhash)?;
+        self.client.confirm_transaction_with_spinner(&signature, &blockhash, self.client.commitment())?;
+
+        Ok(signature)
     }
 
     pub fn create_alloy_data_accounts(
@@ -60,16 +68,21 @@ impl NftClient {
         uri: String,
         last_price: u64,
         listed_price: u64,
-        owner: &Keypair 
+        owner: &Keypair,
+        lamports: Option<u64>,
     ) -> Result<(AlloyData, Pubkey), CustomError> {
-        let mint_account = Keypair::new();
-
         let program_key = alloy_token_program::id();
         println!("---> Program ID: {}\n", program_key);
 
         let accounts = self.client.get_program_accounts(&program_key).unwrap();
         println!("---> Saved alloy accounts: {}", accounts.len());
         let id = accounts.len() as u8 + 1;
+
+        let lamports = if let Some(lamports) = lamports {
+            lamports
+        } else {
+            self.client.get_minimum_balance_for_rent_exemption(Mint::LEN)?
+        };
 
         let alloy_data_seeds = &[PREFIX.as_bytes(), &program_key.as_ref(),&[id]];
         let (alloy_data_key, _) = Pubkey::find_program_address(alloy_data_seeds, &program_key);
@@ -86,10 +99,8 @@ impl NftClient {
             listed_price,
             &owner.pubkey()
         );
-        println!("{:?}", new_alloy_data_instruction);
 
         let latest_blockhash = self.client.get_latest_blockhash().unwrap();
-        println!("---> Latest Blockhash: {}", &latest_blockhash);
 
         let transaction: Transaction = Transaction::new_signed_with_payer(
             &[new_alloy_data_instruction],
@@ -98,12 +109,12 @@ impl NftClient {
             latest_blockhash
         );
 
-        let result = self.client.send_and_confirm_transaction_with_spinner(&transaction);
-        println!("Result --> {:?}", &result);
+        let result = self.client.send_and_confirm_transaction_with_spinner_and_commitment(&transaction, CommitmentConfig::confirmed());
+        println!("Result --> {:#?}", &result);
         if result.is_ok() {
             println!(
                 "Successfully created a Mint Account with Pubkey: {:?}",
-                mint_account
+                owner
             )
         };
     
@@ -179,7 +190,7 @@ impl NftClient {
             let alloy_data: AlloyData = try_from_slice_unchecked(&account.data).unwrap();
             all_alloys.push(alloy_data);
         }
-
+        println!("{:#?}", &all_alloys);
         all_alloys
     }
 

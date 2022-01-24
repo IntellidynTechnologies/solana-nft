@@ -45,15 +45,17 @@ mod tests {
 		let listed_price = 24;
 		let wallet_keypair = get_wallet();
 
-		rpc_client.request_airdrop(&payer, 2);
+		rpc_client.airdrop(&payer.pubkey(), 2);
+		rpc_client.airdrop(&wallet_keypair.pubkey(), 2);
 
 		let got = rpc_client.create_alloy_data_accounts(
-			&payer,
+			&wallet_keypair,
 			name,
 			uri,
 			last_price,
 			listed_price,
-			&wallet_keypair
+			&payer,
+			Some(1),
 		);
 
 		let want: (AlloyData, Pubkey) = (
@@ -63,11 +65,17 @@ mod tests {
 				uri:"sae8620".to_string(),
 				last_price: 20,
 				listed_price: 24,
-				owner_address: wallet_keypair.pubkey()
+				owner_address: payer.pubkey()
 			},
-			Pubkey::from_str("HcTtijdgAWphrP17Tq7WxU9gpp1jKDQvMxKpKgbgzWeL").unwrap()
+			Pubkey::from_str("AsVr8Cd6HwtRtZ3ypX4yjcw96aMVc5si8LRN5P3ydYBJ").unwrap()
 		);
 
-		assert_ne!(*&got.as_ref(), Ok(&want), "\nGot -> {:?}, \nWant -> {:?}", got, want);
+		assert_eq!(*&got.as_ref(), Ok(&want), "\nGot -> {:?}, \nWant -> {:?}", got, want);
+
+		let got = rpc_client.get_all_alloys();
+
+		let want = 0;
+
+		assert_eq!(got.len(), want);
 	}
 }
