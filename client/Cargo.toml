@@ -3,20 +3,11 @@ name = "solana-nft"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[features]
-no-entrypoint = []
-
 [dependencies]
 solana-sdk = "1.9.5"
-solana-program = "1.9.5"
 solana-client = "1.9.5"
 borsh = "0.9.1"
 borsh-derive = "0.9.1"
 spl-token = { version = "3.2.0", features = ["no-entrypoint"] }
 alloy-token-program = { path = "../program", features = ["no-entrypoint"] }
 solana-account-decoder = "1.9.5"
-
-[lib]
-crate-type = ["cdylib", "lib"]

@@ -35,6 +35,7 @@ pub enum NftInstruction {
 }
 
 impl NftInstruction {
+
 	pub fn create_alloy_data_accounts(
 		program_id: &Pubkey,
 		alloy_data_account: &Pubkey,
