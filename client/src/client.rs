@@ -31,6 +31,8 @@ use crate::cl_errors::CustomError;
 
 pub type ClientResult<T> = Result<T, CustomError>;
 
+pub const DEFAULT_LAMPORTS_PER_SOL: u64 = 1_000_000_000;
+
 pub struct NftClient {
     pub client: RpcClient
 }
@@ -62,6 +64,11 @@ impl NftClient {
         self.client.confirm_transaction_with_spinner(&signature, &blockhash, self.client.commitment())?;
 
         Ok(signature)
+    }
+
+    pub fn get_total_nfts(&self, ) -> ClientResult<usize> {
+        let program_key = alloy_token_program::id();
+        Ok(self.client.get_program_accounts(&program_key).unwrap().len())
     }
 
     pub fn create_mint_account(
@@ -162,43 +169,68 @@ impl NftClient {
 
     }
 
-    pub fn mint_nft(
+    pub fn create_alloy_data_accounts(
         &self,
+        name: String,
+        symbol: String,
+        uri: String,
+        listed_price: f64,
         wallet_keypair: &Keypair,
-        mint_account_pubkey: &Pubkey,
-        token_account_pubkey: &Pubkey,
-    ) {
-        let wallet_pubkey = wallet_keypair.pubkey();
+        &mint_account_pubkey: &Pubkey,
+    ) -> ClientResult<(AlloyData, Pubkey)> {
+        let program_key = alloy_token_program::id();
+        println!("--> Program ID: {}", &program_key);
 
-        let mint_to_instruction: Instruction = spl_token::instruction::mint_to(
-            &spl_token::id(),
+        let accounts = self.client.get_program_accounts(&program_key).unwrap();
+        println!("--> Saved alloy accounts: {}", accounts.len());
+
+        let id = accounts.len() as u8 + 1;
+
+        let last_price = 0 as u64;
+        let listed_price = (listed_price * DEFAULT_LAMPORTS_PER_SOL as f64) as u64;
+        let alloy_data_seeds = &[PREFIX.as_bytes(), &program_key.as_ref(),&[id]];
+        let (alloy_data_key, _) = Pubkey::find_program_address(alloy_data_seeds, &program_key);
+        println!("--> Alloy Data Key: {}", &alloy_data_key);
+
+        let new_alloy_data_instruction = NftInstruction::create_alloy_data_accounts(
+            &program_key,
+            alloy_data_key,
+            &wallet_keypair.pubkey(),
+            id,
+            name,
+            symbol,
+            uri,
+            last_price,
+            listed_price,
             &mint_account_pubkey,
-            &token_account_pubkey,
-            &wallet_pubkey,
-            &[&wallet_pubkey],
-            1,
-        )
-        .unwrap();
-    
-        let (recent_blockhash, _fee_calculator) = client.get_recent_blockhash().unwrap();
-        let transaction: Transaction = Transaction::new_signed_with_payer(
-            &vec![mint_to_instruction],
-            Some(&wallet_pubkey),
-            &[wallet_keypair],
-            recent_blockhash,
         );
-    
-        let result = client.send_and_confirm_transaction_with_spinner(&transaction);
+
+        let latest_blockhash = self.client.get_latest_blockhash().unwrap();
+
+        let transaction = Transaction::new_signed_with_payer(
+            &vec![new_alloy_data_instruction], 
+            Some(&wallet_keypair.pubkey()),
+            &vec![wallet_keypair],
+            latest_blockhash
+        );
+
+        let result = self.client.send_and_confirm_transaction_with_spinner(&transaction);
+        println!("{:#?}", &result);
         if result.is_ok() {
-            println!("Successfully Minted NFT to : {:?}", wallet_pubkey);
-    
-            upgrade_to_master_edition(
-                &wallet_keypair,
-                &create_metadata_account(&wallet_keypair, &mint_account_pubkey, &client),
-                &mint_account_pubkey,
-                &client,
-            );
+            println!(
+                "Successfully created an Alloy Data Account with Pubkey: {:?}",
+                alloy_data_key
+            )
         };
+
+        let account_data = self.client.get_account_data(&alloy_data_key).unwrap();
+        let alloy_data = try_from_slice_unchecked(&account_data);
+        println!("Alloy Data: {:#?}", &alloy_data);
+        if !alloy_data.is_err() {
+            return Ok((alloy_data.unwrap(), alloy_data_key));
+        } else {
+            return Err(CustomError::Custom("Unxpected Length Of Input".to_string()));
+        }
     }
 
     pub fn update_alloy_data_account(
@@ -258,7 +290,7 @@ impl NftClient {
 
         let mut all_alloys: Vec<AlloyData> = Vec::new();
 
-        for (pubkey, account) in accounts {
+        for (_, account) in accounts {
             let alloy_data: AlloyData = try_from_slice_unchecked(&account.data).unwrap();
             all_alloys.push(alloy_data);
         }
@@ -275,7 +307,7 @@ impl NftClient {
 
         let mut all_alloys: Vec<AlloyData> = Vec::new();
 
-        for (pubkey, account) in accounts {
+        for (_, account) in accounts {
 
             if owner.pubkey() == account.owner {
                 let alloy_data: AlloyData = try_from_slice_unchecked(&account.data).unwrap();
