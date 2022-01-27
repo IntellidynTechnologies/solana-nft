@@ -41,6 +41,9 @@ mod tests {
 		let rpc_client: NftClient = NftClient::new().unwrap();
 		
 		let wallet_keypair = get_wallet();
+		
+		let add_balance_to_owner = rpc_client.airdrop(&owner.pubkey(), 2);
+		println!("Signature: {}", &add_balance_to_owner.unwrap());
 
 		let mint_acc = Keypair::new();
 
