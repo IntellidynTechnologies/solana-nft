@@ -42,6 +42,7 @@ impl NftInstruction {
 		payer: &Pubkey,
 		id: u8,
 		name: String,
+		symbol: String,
 		uri: String,
 		last_price: u64,
 		listed_price: u64,
@@ -58,6 +59,7 @@ impl NftInstruction {
 			data: AlloyData {
 				id,
 				name,
+				symbol,
 				uri,
 				last_price,
 				listed_price,

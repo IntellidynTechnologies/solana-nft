@@ -2,6 +2,9 @@ use solana_client::{
     rpc_client::RpcClient,
     rpc_config::{ RpcAccountInfoConfig, RpcProgramAccountsConfig },
     rpc_filter::{ RpcFilterType, MemcmpEncodedBytes, Memcmp },
+    rpc_request::TokenAccountsFilter,
+    rpc_response::RpcKeyedAccount,
+    client_error::ClientError
 };
 
 use solana_sdk::{
@@ -19,6 +22,8 @@ use solana_sdk::{
 };
 
 use solana_account_decoder::UiAccountEncoding;
+
+use std::str::FromStr;
 
 use alloy_token_program::{
     instruction::NftInstruction,
@@ -194,7 +199,7 @@ impl NftClient {
 
         let new_alloy_data_instruction = NftInstruction::create_alloy_data_accounts(
             &program_key,
-            alloy_data_key,
+            &alloy_data_key,
             &wallet_keypair.pubkey(),
             id,
             name,
@@ -231,6 +236,34 @@ impl NftClient {
         } else {
             return Err(CustomError::Custom("Unxpected Length Of Input".to_string()));
         }
+    }
+
+    pub fn get_tokens_by_owner(&self, owner: &Pubkey) -> Result<Vec<RpcKeyedAccount>, ClientError> {
+        let token_account_filter = TokenAccountsFilter::Mint(*owner);
+
+        let res = self.client.get_token_accounts_by_owner(owner, token_account_filter);
+        println!("--> Result: {:#?}", &res);
+
+        res
+    }
+
+    pub fn get_all_owners_by_alloy_uri(&self, alloy_uri: String) -> ClientResult<Vec<Pubkey>> {
+        let program_key = alloy_token_program::id();
+        println!("---> Program ID: {}\n", program_key);
+
+        let accounts = self.client.get_program_accounts(&program_key).unwrap();
+        println!("--> Saved program accounts: {}", accounts.len());
+
+        let mut all_owners: Vec<Pubkey> = Vec::new();
+
+        for (_, account) in accounts {
+            let alloy_data: AlloyData = try_from_slice_unchecked(&account.data).unwrap();
+            if alloy_data.uri == alloy_uri {
+                all_owners.push(alloy_data.owner_address);
+            }
+        }
+        println!("--> Owners: {:#?}", &all_owners);
+        Ok(all_owners)
     }
 
     pub fn update_alloy_data_account(
@@ -314,7 +347,6 @@ impl NftClient {
                 all_alloys.push(alloy_data);
             }
         }
-
         all_alloys
     }
 
@@ -357,7 +389,7 @@ impl NftClient {
     
         let holders = self.client.get_program_accounts_with_config(&spl_token::id(), config).unwrap();
     
-        println!("holder {}", holders[0].0.to_string());
+        println!("--> Holder {}", holders[0].0.to_string());
     
         let new_alloy_data_instruction = NftInstruction::purchase_alloy(
             &program_key,

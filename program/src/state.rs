@@ -10,6 +10,7 @@ use borsh::{ BorshSerialize, BorshDeserialize };
 
 pub const PREFIX: &str = "alloy";
 pub const MAX_NAME_LENGTH: usize = 32;
+pub const MAX_SYMBOL_LENGTH: usize = 10;
 pub const MAX_URI_LENGTH: usize = 200;
 pub const MAX_DATA_SIZE: usize = 1 + 4 + MAX_NAME_LENGTH + 4 + MAX_URI_LENGTH + 8 + 8 +32;
 
@@ -17,6 +18,7 @@ pub const MAX_DATA_SIZE: usize = 1 + 4 + MAX_NAME_LENGTH + 4 + MAX_URI_LENGTH + 
 pub struct AlloyData {
 	pub id: u8,
 	pub name: String,
+	pub symbol: String,
 	pub uri: String,
 	pub last_price: u64,
 	pub listed_price: u64,

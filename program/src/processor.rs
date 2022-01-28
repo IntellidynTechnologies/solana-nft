@@ -1,5 +1,5 @@
 use crate::{
-	state::{ AlloyData, PREFIX, MAX_DATA_SIZE, MAX_NAME_LENGTH, MAX_URI_LENGTH },
+	state::{ AlloyData, PREFIX, MAX_DATA_SIZE, MAX_NAME_LENGTH, MAX_SYMBOL_LENGTH, MAX_URI_LENGTH },
 	instruction::NftInstruction,
 	error::CustomError,
 };
@@ -35,6 +35,7 @@ impl Processor {
 					program_id,
 			                accounts,
 			                args.data,
+							args.id
 			        )
 			},
 			NftInstruction::UpdateAlloyPrice(args) => {
@@ -66,6 +67,7 @@ pub fn process_create_alloy_data_accounts(
 	program_id: &Pubkey,
 	accounts: &[AccountInfo],
 	data: AlloyData,
+	id: u8,
 ) -> ProgramResult {
 	let account_iter = &mut accounts.iter();
 
@@ -77,7 +79,7 @@ pub fn process_create_alloy_data_accounts(
 	let alloy_data_seeds = &[
 		PREFIX.as_bytes(),
 		program_id.as_ref(),
-		&[data.id]
+		&[id]
 	];
 
 	let (alloy_data_key, alloy_data_bump_seed) = Pubkey::find_program_address(alloy_data_seeds, program_id);
@@ -86,7 +88,7 @@ pub fn process_create_alloy_data_accounts(
 	let alloy_data_authority_signer_seeds = &[
 		PREFIX.as_bytes(),
         	program_id.as_ref(),
-        	&[data.id],
+        	&[id],
         	&[alloy_data_bump_seed],
     	];
 
@@ -98,7 +100,7 @@ pub fn process_create_alloy_data_accounts(
     	let req_lamports = rent.minimum_balance(MAX_DATA_SIZE).max(1).saturating_sub(alloy_data_account_info.lamports());
 
     	if req_lamports > 0 {
-    		msg!("{} lamports are transferred to the new acccount", req_lamports);
+    		msg!("--> {} lamports are transferred to the new acccount", req_lamports);
     		invoke(
     			&system_instruction::transfer(&payer_info.key, alloy_data_account_info.key, req_lamports),
     			&[
@@ -111,17 +113,28 @@ pub fn process_create_alloy_data_accounts(
 
     	let accounts = &[alloy_data_account_info.clone(), system_account_info.clone()];
 
-    	msg!("Allocate space for the account.");
+    	msg!("--> Allocate space for the account.");
     	invoke_signed(
     		&system_instruction::allocate(alloy_data_account_info.key, MAX_DATA_SIZE.try_into().unwrap()),
     		accounts,
     		&[alloy_data_authority_signer_seeds],
     	)?;
 
+		msg!("--> Assign the account to the owning program");
+		invoke_signed(
+			&system_instruction::assign(alloy_data_account_info.key, &program_id),
+			accounts,
+			&[alloy_data_authority_signer_seeds],
+		)?;
+
     	let mut alloy_data = AlloyData::from_acc_info(alloy_data_account_info)?;
 
     	if data.name.len() > MAX_NAME_LENGTH {
     		return Err(CustomError::NameTooLong.into());
+    	}
+
+		if data.symbol.len() > MAX_SYMBOL_LENGTH {
+    		return Err(CustomError::SymbolTooLong.into());
     	}
 
     	if data.uri.len() > MAX_URI_LENGTH {
@@ -130,6 +143,7 @@ pub fn process_create_alloy_data_accounts(
 
     	alloy_data.id = data.id;
     	alloy_data.name = data.name;
+		alloy_data.symbol = data.symbol;
     	alloy_data.uri = data.uri;
     	alloy_data.last_price = data.last_price;
     	alloy_data.listed_price = data.listed_price;
@@ -142,6 +156,14 @@ pub fn process_create_alloy_data_accounts(
     	}
 
     	alloy_data.name = alloy_data.name.clone() + std::str::from_utf8(&array_of_zeroes).unwrap();
+
+		let mut array_of_zeroes = vec![];
+
+    	while array_of_zeroes.len() > MAX_SYMBOL_LENGTH - alloy_data.symbol.len() {
+    		array_of_zeroes.push(0u8);
+    	}
+
+    	alloy_data.symbol = alloy_data.symbol.clone() + std::str::from_utf8(&array_of_zeroes).unwrap();
 
     	let mut array_of_zeroes = vec![];
 
